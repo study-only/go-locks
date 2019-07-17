@@ -1,86 +1,80 @@
-package locks
+package golocks
 
 import (
 	"fmt"
 	"github.com/go-redis/redis"
 	"github.com/stretchr/testify/assert"
-	"sync"
 	"testing"
 	"time"
 )
 
-func getRedisClient(host string, port int64, pwd string) *redis.Client {
-	addr := fmt.Sprintf("%s:%d", host, port)
+var (
+	testRedisHost = env("TEST_REDIS_HOST", "127.0.0.1")
+	testRedisPORT = env("TEST_REDIS_PORT", "6379")
+	testRedisPWD  = env("TEST_REDIS_PWD", "")
+)
+
+func TestRedisLock_Lock(t *testing.T) {
+	client := getRedisClient(t, testRedisHost, testRedisPORT, testRedisPWD)
+	InitRedisLock(client)
+	lock := NewRedisLock("test", time.Second, 3, 100*time.Millisecond)
+
+	err := lock.Lock()
+	assert.Nil(t, err)
+	err = lock.Unlock()
+	assert.Nil(t, err)
+}
+
+func TestRedisLock_Expired(t *testing.T) {
+	client := getRedisClient(t, testRedisHost, testRedisPORT, testRedisPWD)
+	InitRedisLock(client)
+	lock := NewRedisLock("expiry", 500*time.Millisecond, 3, 100*time.Millisecond)
+
+	err := lock.Lock()
+	assert.Nil(t, err)
+	time.Sleep(600 * time.Millisecond)
+
+	err = lock.Unlock()
+	assert.NotNil(t, err)
+	err = lock.Lock()
+	assert.Nil(t, err)
+}
+
+func TestRedisLock_ConcurrentLock(t *testing.T) {
+	spinInterval := 10 * time.Millisecond
+	client := getRedisClient(t, testRedisHost, testRedisPORT, testRedisPWD)
+	InitRedisLock(client)
+	l1 := NewRedisLock("concurrent", time.Second, 10, spinInterval)
+	l2 := NewRedisLock("concurrent", time.Second, 10, spinInterval)
+
+	testValue := 1
+	l1.Lock()
+	go func() {
+		l2.Lock()
+		defer l2.Unlock()
+		assert.Equal(t, 2, testValue)
+	}()
+
+	time.Sleep(3 * spinInterval)
+	assert.Equal(t, 1, testValue)
+	testValue++
+	l1.Unlock()
+
+	time.Sleep(3 * spinInterval)
+}
+
+func getRedisClient(t *testing.T, host, port, pwd string) *redis.Client {
+	addr := fmt.Sprintf("%s:%s", host, port)
 	client := redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Password: pwd,
 		DB:       0,
 	})
 
-	if err := client.Ping().Err(); err == nil {
-		client.FlushAll()
-		return client
-	} else {
-		return nil
+	if err := client.Ping().Err(); err != nil {
+		t.Fatal(err)
 	}
-}
 
-func TestRedisLock_Lock(t *testing.T) {
-	client := getRedisClient("127.0.0.1", 6379, "")
-	mutex := NewRedisLock(client, "test", time.Second, 3, 100*time.Millisecond)
-
-	assert.Equal(t, nil, mutex.Lock())
-	assert.NotEqual(t, nil, mutex.Lock())
-	time.Sleep(2000 * time.Millisecond)
-	assert.Equal(t, nil, mutex.Lock())
-}
-
-func TestRedisLock_Unlock(t *testing.T) {
-	client := getRedisClient("127.0.0.1", 6379, "")
-	mutex := NewRedisLock(client, "test", time.Second, 3, 100*time.Millisecond)
-
-	assert.Equal(t, nil, mutex.Lock())
-	assert.Equal(t, nil, mutex.Unlock())
-	assert.NotEqual(t, nil, mutex.Unlock())
-}
-
-func TestRedisLock_UnLockExpired(t *testing.T) {
-	client := getRedisClient("127.0.0.1", 6379, "")
-	mutex := NewRedisLock(client, "test", 500*time.Millisecond, 3, 100*time.Millisecond)
-
-	assert.Equal(t, nil, mutex.Lock())
-	time.Sleep(600 * time.Millisecond)
-	assert.NotEqual(t, nil, mutex.Unlock())
-}
-
-func TestRedisLock_ConcurrentLock(t *testing.T) {
-	client := getRedisClient("127.0.0.1", 6379, "")
-	mutex1 := NewRedisLock(client, "concurrent", time.Second, 3, 100*time.Millisecond)
-	mutex2 := NewRedisLock(client, "concurrent", time.Second, 3, 100*time.Millisecond)
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-
-	var err1, err2 error
-	go func() {
-		err1 = mutex1.Lock()
-		wg.Add(-1)
-	}()
-	go func() {
-		err2 = mutex2.Lock()
-		wg.Add(-1)
-	}()
-	wg.Wait()
-
-	assert.Equal(t, false, err1 == nil && err2 == nil)
-	assert.Equal(t, true, err1 == nil || err2 == nil)
-}
-
-func TestRedisLock_ConcurrentUnlock(t *testing.T) {
-	client := getRedisClient("127.0.0.1", 6379, "")
-	mutex1 := NewRedisLock(client, "test", time.Second, 3, 100*time.Millisecond)
-	mutex2 := NewRedisLock(client, "test", time.Second, 3, 100*time.Millisecond)
-
-	assert.Equal(t, nil, mutex1.Lock())
-	assert.NotEqual(t, nil, mutex2.Unlock())
-	assert.Equal(t, nil, mutex1.Unlock())
+	client.FlushAll()
+	return client
 }

@@ -1,4 +1,4 @@
-package locks
+package golocks
 
 import (
 	"fmt"
@@ -6,58 +6,64 @@ import (
 	"time"
 )
 
-type RedisLock struct {
-	client *redis.Client
-	name   string
-	expiry time.Duration
-	tries  int64
-	delay  time.Duration
+var redisClient *redis.Client
 
-	startAt time.Time
-	isOwner bool
+func InitRedisLock(client *redis.Client) {
+	if client == nil {
+		panic("client is nil")
+	}
+	redisClient = client
 }
 
-func NewRedisLock(client *redis.Client, name string, expiry time.Duration, tries int64, delay time.Duration) RedisLock {
-	return RedisLock{
-		client:  client,
-		name:    name,
-		expiry:  expiry,
-		tries:   tries,
-		delay:   delay,
-		isOwner: false,
+func NewRedisLock(name string, expiry time.Duration, spinTries int, spinInterval time.Duration) Locker {
+	return &redisLock{
+		name:         name,
+		expiry:       expiry,
+		spinTries:    spinTries,
+		spinInterval: spinInterval,
+		isOwner:      false,
 	}
 }
 
-func (m *RedisLock) Lock() error {
-	for i := int64(0); i < m.tries; i++ {
-		if ok, _ := m.client.SetNX(m.key(), 1, m.expiry).Result(); ok {
-			m.startAt = time.Now()
-			m.isOwner = true
+type redisLock struct {
+	name         string
+	expiry       time.Duration
+	spinTries    int
+	spinInterval time.Duration
+	startAt      time.Time
+	isOwner      bool
+}
+
+func (l *redisLock) Lock() error {
+	for i := 0; i < l.spinTries; i++ {
+		if ok, _ := redisClient.SetNX(l.key(), 1, l.expiry).Result(); ok {
+			l.startAt = time.Now()
+			l.isOwner = true
 			return nil
 		}
 
-		time.Sleep(m.delay)
+		time.Sleep(l.spinInterval)
 	}
 
-	return fmt.Errorf("lock %s failed after %f seconds", m.key(), float64(m.tries)*m.delay.Seconds())
+	return errorf(fmt.Sprintf("redis lock: lock %s failed after %f seconds", l.key(), float64(l.spinTries)*l.spinInterval.Seconds()))
 }
 
-func (m *RedisLock) Unlock() error {
-	if !m.isOwner {
-		return fmt.Errorf("no permmision")
+func (l *redisLock) Unlock() error {
+	if !l.isOwner {
+		return errorf("redis lock: not owner")
 	}
-	if time.Now().UnixNano()-m.startAt.UnixNano() >= m.expiry.Nanoseconds() {
-		return fmt.Errorf("lock %s already expired", m.key())
-	}
-
-	if err := m.client.Del(m.key()).Err(); err != nil {
-		return err
+	if time.Now().UnixNano()-l.startAt.UnixNano() >= l.expiry.Nanoseconds() {
+		return errorf("redis lock: lock expired")
 	}
 
-	m.isOwner = false
+	if err := redisClient.Del(l.key()).Err(); err != nil {
+		return errorf("redis lock: %s", err)
+	}
+
+	l.isOwner = false
 	return nil
 }
 
-func (m RedisLock) key() string {
-	return "redis_lock:" + m.name
+func (l redisLock) key() string {
+	return "redis_lock:" + l.name
 }
