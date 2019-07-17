@@ -3,25 +3,23 @@ package golocks
 import (
 	"github.com/stretchr/testify/assert"
 	"testing"
-	"time"
 )
 
 func TestKeyLock_TryLock(t *testing.T) {
 	lockAKey := "a"
 	lockBKey := "b"
-	spinInterval := 10 * time.Millisecond
 
-	la1 := NewMapLock(lockAKey, spinInterval)
-	la2 := NewMapLock(lockAKey, spinInterval)
-	la3 := NewMapLock(lockAKey, spinInterval)
-	lb := NewMapLock(lockBKey, spinInterval)
+	la1 := NewMapLock(lockAKey)
+	la2 := NewMapLock(lockAKey)
+	la3 := NewMapLock(lockAKey)
+	lb := NewMapLock(lockBKey)
 
 	// lock
-	err := la1.Lock()
+	err := la1.TryLock()
 	assert.Nil(t, err)
 
 	// lock another
-	err = lb.Lock()
+	err = lb.TryLock()
 	assert.Nil(t, err)
 
 	// unlock
@@ -31,30 +29,8 @@ func TestKeyLock_TryLock(t *testing.T) {
 	assert.Nil(t, err)
 
 	// lock and again
-	err = la3.Lock()
+	err = la3.TryLock()
 	assert.Nil(t, err)
-	la3.Unlock()
-}
-
-func TestKeyLock_Concurrent(t *testing.T) {
-	testValue := 1
-	lockKey := "test"
-	spinInterval := 10 * time.Millisecond
-
-	l1 := NewMapLock(lockKey, spinInterval)
-	l1.Lock()
-
-	go func() {
-		l2 := NewMapLock(lockKey, spinInterval)
-		l2.Lock()
-		defer l2.Unlock()
-		assert.Equal(t, 2, testValue)
-	}()
-
-	time.Sleep(3 * spinInterval)
-	assert.Equal(t, 1, testValue)
-	testValue++
-	l1.Unlock()
-
-	time.Sleep(3 * spinInterval)
+	err = la3.Unlock()
+	assert.Nil(t, err)
 }

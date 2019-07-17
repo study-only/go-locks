@@ -49,44 +49,38 @@ func InitMysqlLock(db *sql.DB, tableName string, clearExpiryInterval time.Durati
 	}
 
 	go func() {
-		deleteExpireLocks()
-		time.Sleep(clearExpiryInterval)
+		for {
+			deleteExpireLocks()
+			time.Sleep(clearExpiryInterval)
+		}
 	}()
 }
 
-func NewMysqlLock(name string, expiry time.Duration, spinTries int, spinInterval time.Duration) Locker {
+func NewMysqlLock(name string, expiry time.Duration) TryLocker {
 	return &mysqlLock{
-		name:         name,
-		expiry:       expiry,
-		spinTries:    spinTries,
-		spinInterval: spinInterval,
+		name:   name,
+		expiry: expiry,
 	}
 }
 
 type mysqlLock struct {
-	name         string
-	expiry       time.Duration
-	spinTries    int
-	spinInterval time.Duration
+	name   string
+	expiry time.Duration
 
 	startAt time.Time
 	isOwner bool
 }
 
-func (l *mysqlLock) Lock() error {
-	for i := 0; i < l.spinTries; i++ {
-		createdAt := time.Now()
-		expireAt := createdAt.Add(l.expiry)
-		if err := insertRow(l.name, expireAt, createdAt); err == nil {
-			l.startAt = time.Now()
-			l.isOwner = true
-			return nil
-		}
-
-		time.Sleep(l.spinInterval)
+func (l *mysqlLock) TryLock() error {
+	createdAt := time.Now()
+	expireAt := createdAt.Add(l.expiry)
+	if err := insertRow(l.name, expireAt, createdAt); err != nil {
+		return errorf(fmt.Sprintf("mysql lock: %s already locked", l.name))
 	}
 
-	return errorf(fmt.Sprintf("mysql lock: lock %s failed after %f seconds", l.name, float64(l.spinTries)*l.spinInterval.Seconds()))
+	l.startAt = time.Now()
+	l.isOwner = true
+	return nil
 }
 
 func (l *mysqlLock) Unlock() error {

@@ -14,20 +14,25 @@ import (
 
 
 // map lock
-l1 := golocks.NewMapLock("lock1", 10 * time.MilliSecond)
-err := l1.Lock()
-err = l1.Unlock()
+mapLock := golocks.NewMapLock("lock1")
+err := mapLock.TryLock()
+err = mapLock.Unlock()
 
 // redis lock
 InitRedisLock(redisClient)
-l2 := NewRedisLock("lock2", time.Second, 50, 100*time.Millisecond)
-err = l2.Lock()
-err = l2.Unlock()
+redisLock := NewRedisLock("lock2", time.Second)
+err = redisLock.TryLock()
+err = redisLock.Unlock()
 
 // mysql lock
-InitMysqlLock(db, "go_lock")
-l3 := NewMysqlLock("lock3", time.Second, 5, time.Second)
-err = l3.Lock()
-err = l3.Unlock()
+InitMysqlLock(db, "go_lock", 5*time.Second)
+mysqlLock := NewMysqlLock("lock3", time.Second)
+err = mysqlLock.TryLock()
+err = mysqlLock.Unlock()
+
+// spin lock
+mapSpinLock := NewSpinLock(NewMapLock(lockKey), spinTries, spinInterval)
+err = mapSpinLock.Lock()
+err = mapSpinLock.Unlock()
 
 ```

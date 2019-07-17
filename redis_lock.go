@@ -1,7 +1,6 @@
 package golocks
 
 import (
-	"fmt"
 	"github.com/go-redis/redis"
 	"time"
 )
@@ -15,37 +14,30 @@ func InitRedisLock(client *redis.Client) {
 	redisClient = client
 }
 
-func NewRedisLock(name string, expiry time.Duration, spinTries int, spinInterval time.Duration) Locker {
+func NewRedisLock(name string, expiry time.Duration) TryLocker {
 	return &redisLock{
-		name:         name,
-		expiry:       expiry,
-		spinTries:    spinTries,
-		spinInterval: spinInterval,
-		isOwner:      false,
+		name:    name,
+		expiry:  expiry,
+		isOwner: false,
 	}
 }
 
 type redisLock struct {
-	name         string
-	expiry       time.Duration
-	spinTries    int
-	spinInterval time.Duration
-	startAt      time.Time
-	isOwner      bool
+	name    string
+	expiry  time.Duration
+	startAt time.Time
+	isOwner bool
 }
 
-func (l *redisLock) Lock() error {
-	for i := 0; i < l.spinTries; i++ {
-		if ok, _ := redisClient.SetNX(l.key(), 1, l.expiry).Result(); ok {
-			l.startAt = time.Now()
-			l.isOwner = true
-			return nil
-		}
-
-		time.Sleep(l.spinInterval)
+func (l *redisLock) TryLock() error {
+	if ok, _ := redisClient.SetNX(l.key(), 1, l.expiry).Result(); !ok {
+		return errorf("redis lock: %s already locked", l.key())
 	}
 
-	return errorf(fmt.Sprintf("redis lock: lock %s failed after %f seconds", l.key(), float64(l.spinTries)*l.spinInterval.Seconds()))
+	l.startAt = time.Now()
+	l.isOwner = true
+	return nil
+
 }
 
 func (l *redisLock) Unlock() error {
