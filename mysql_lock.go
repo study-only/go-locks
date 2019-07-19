@@ -3,8 +3,9 @@ package golocks
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 const (
@@ -56,7 +57,7 @@ func InitMysqlLock(db *sql.DB, tableName string, clearExpiryInterval time.Durati
 	}()
 }
 
-func NewMysqlLock(name string, expiry time.Duration) TryLocker {
+func NewMysqlLock(name string, expiry time.Duration) *mysqlLock {
 	return &mysqlLock{
 		name:   name,
 		expiry: expiry,

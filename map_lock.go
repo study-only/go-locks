@@ -9,18 +9,18 @@ var (
 	mapLocked = make(map[string]struct{})
 )
 
-func NewMapLock(name string) TryLocker {
-	return &keyLock{
-		name:         name,
+func NewMapLock(name string) *mapLock {
+	return &mapLock{
+		name: name,
 	}
 }
 
-type keyLock struct {
-	name         string
-	isOwner      bool
+type mapLock struct {
+	name    string
+	isOwner bool
 }
 
-func (l *keyLock) TryLock() error {
+func (l *mapLock) TryLock() error {
 	mapLockMu.Lock()
 	defer mapLockMu.Unlock()
 
@@ -33,7 +33,7 @@ func (l *keyLock) TryLock() error {
 	return nil
 }
 
-func (l *keyLock) Unlock() error {
+func (l *mapLock) Unlock() error {
 	mapLockMu.Lock()
 	defer mapLockMu.Unlock()
 

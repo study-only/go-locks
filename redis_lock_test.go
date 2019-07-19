@@ -2,10 +2,11 @@ package golocks
 
 import (
 	"fmt"
-	"github.com/go-redis/redis"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/go-redis/redis"
+	"github.com/stretchr/testify/assert"
 )
 
 var (

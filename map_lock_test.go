@@ -1,11 +1,12 @@
 package golocks
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestKeyLock_TryLock(t *testing.T) {
+func TestMapLock_TryLock(t *testing.T) {
 	lockAKey := "a"
 	lockBKey := "b"
 

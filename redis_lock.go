@@ -1,8 +1,9 @@
 package golocks
 
 import (
-	"github.com/go-redis/redis"
 	"time"
+
+	"github.com/go-redis/redis"
 )
 
 var redisClient *redis.Client
@@ -14,7 +15,7 @@ func InitRedisLock(client *redis.Client) {
 	redisClient = client
 }
 
-func NewRedisLock(name string, expiry time.Duration) TryLocker {
+func NewRedisLock(name string, expiry time.Duration) *redisLock {
 	return &redisLock{
 		name:    name,
 		expiry:  expiry,

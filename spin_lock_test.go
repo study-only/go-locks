@@ -1,9 +1,10 @@
 package golocks
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSpinLock_Lock(t *testing.T) {

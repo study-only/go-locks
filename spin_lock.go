@@ -1,17 +1,15 @@
 package golocks
 
 import (
-	"errors"
-	"fmt"
 	"time"
 )
 
-type TryLocker interface {
+type tryLocker interface {
 	TryLock() error
 	Unlock() error
 }
 
-func NewSpinLock(lock TryLocker, spinTries int, spinInterval time.Duration) *spinLock {
+func NewSpinLock(lock tryLocker, spinTries int, spinInterval time.Duration) *spinLock {
 	return &spinLock{
 		lock:         lock,
 		spinTries:    spinTries,
@@ -20,7 +18,7 @@ func NewSpinLock(lock TryLocker, spinTries int, spinInterval time.Duration) *spi
 }
 
 type spinLock struct {
-	lock         TryLocker
+	lock         tryLocker
 	spinTries    int
 	spinInterval time.Duration
 }
@@ -34,13 +32,9 @@ func (l *spinLock) Lock() error {
 		time.Sleep(l.spinInterval)
 	}
 
-	return errorf(fmt.Sprintf("spin lock: failed after %f seconds", float64(l.spinTries)*l.spinInterval.Seconds()))
+	return errorf("spin lock: failed after %f seconds", float64(l.spinTries)*l.spinInterval.Seconds())
 }
 
 func (l *spinLock) Unlock() error {
 	return l.lock.Unlock()
-}
-
-func errorf(format string, args ...interface{}) error {
-	return errors.New(fmt.Sprintf(format, args...))
 }
