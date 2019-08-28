@@ -4,12 +4,7 @@ import (
 	"time"
 )
 
-type tryLocker interface {
-	TryLock() error
-	Unlock() error
-}
-
-func NewSpinLock(lock tryLocker, spinTries int, spinInterval time.Duration) *spinLock {
+func NewSpinLock(lock TryLocker, spinTries int, spinInterval time.Duration) *spinLock {
 	return &spinLock{
 		lock:         lock,
 		spinTries:    spinTries,
@@ -18,7 +13,7 @@ func NewSpinLock(lock tryLocker, spinTries int, spinInterval time.Duration) *spi
 }
 
 type spinLock struct {
-	lock         tryLocker
+	lock         TryLocker
 	spinTries    int
 	spinInterval time.Duration
 }

@@ -1,41 +1,17 @@
-# Go Locks
+package di
 
-- map lock
-- redis lock
-- mysql lock
+import (
+	"testing"
+	"time"
 
-## Usage
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/study-only/go-locks"
+	"github.com/study-only/go-locks/mock"
+)
 
-```go
-//  Map Lock
-mapLock := NewMapLock("lock1")
-err := mapLock.TryLock()
-err = mapLock.Unlock()
-
-// Redis Lock
-InitRedisLock(redisClient)
-redisLock := NewRedisLock("lock2", time.Second)
-err = redisLock.TryLock()
-err = redisLock.Unlock()
-
-// MySQL Lock
-InitMysqlLock(db, "test", 5*time.Second)
-mysqlLock := NewMysqlLock("lock3", time.Second)
-err = mysqlLock.TryLock()
-err = mysqlLock.Unlock()
-
-// Upgrade to Spin Lock
-mapSpinLock := NewSpinLock(NewMapLock(lockKey), spinTries, spinInterval)
-err = mapSpinLock.Lock()
-err = mapSpinLock.Unlock()
-
-```
-
-### Dependency Injection
-
-```go
 type usecase struct {
-	lockFactory ExpiryLockFactory
+	lockFactory golocks.ExpiryLockFactory
 }
 
 func (u *usecase) CheckFrequntSubmit(key string, expiry time.Duration) (ok bool) {
@@ -64,4 +40,3 @@ func TestUsecase_CheckFrequentSubmit(t *testing.T) {
 	ok := bookUsecase.CheckFrequntSubmit(key, expiry)
 	assert.True(t, ok)
 }
-```

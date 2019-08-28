@@ -11,12 +11,10 @@ import (
 const (
 	createTableSql = `
 CREATE TABLE IF NOT EXISTS %s (
-  id         int          NOT NULL AUTO_INCREMENT,
   name       varchar(255) NOT NULL,
   expire_at  timestamp    NOT NULL,
   created_at timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_name (name) USING HASH,
+  PRIMARY KEY (name) USING HASH,
   KEY idx_expire_at (expire_at) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 `
